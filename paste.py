@@ -2,8 +2,8 @@
 
 class Paste:
 
-    standard_url = "https://pastebin.com/"
-    raw_url = "https://pastebin.com/raw/"
+    raw_url = "https://scrape.pastebin.com/api_scrape_item.php?i="
+    metadata_url = "https://scrape.pastebin.com/api_scrape_item_meta.php?i="
 
     def __init__(self, date, key, size, expire, title, user):
         self.date = date

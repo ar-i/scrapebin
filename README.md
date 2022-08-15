@@ -10,6 +10,11 @@ Per default it ..
 * .. fetches the content for each new paste and stores it as a textfile on your
   local disk
 
+There is support for ..
+
+* .. providing a list of regular expressions against which the title and content of all new pastes will be checked
+* .. alerting via mail if there is a match
+
 #### Usage
 
 **Important**: If you don't have a [PRO account](https://pastebin.com/pro)
@@ -29,7 +34,8 @@ You can run it with the following command:
 ```
 
 `$storage_path` is a local path the the user running scrapebin has r/w-access
-to.
+to - this is a mandatory argument. For more information use `-h` for the
+built-in help.
 
 #### License
 

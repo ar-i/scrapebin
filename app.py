@@ -35,20 +35,21 @@ else:
 # This is a function so it's easier to use if I have to implement
 # multiprocessing
 def paste_creation(raw_data):
-	try:
-		cur = Paste(raw_data["date"], raw_data["key"], raw_data["size"], raw_data["expire"], raw_data["title"], raw_data["user"])
-		if args.debug:
-			print(f"[*] Currently working on {cur.key} ..")
-			print(f"[*] Storing the content for {cur.key} in {fp} ..")
-		cur.store_locally(args.path, cur.fetch_content())
+    try:
+        cur = Paste(raw_data["date"], raw_data["key"], raw_data["size"], raw_data["expire"], raw_data["title"], raw_data["user"])
+        if args.debug:
+            print(f"[*] Currently working on {cur.key} ..")
+            print(f"[*] Storing the content for {cur.key} in {args.path} ..")
+        cur.store_locally(args.path, cur.fetch_content())
 
-		cur.path = args.path + cur.key + ".txt"
-		if args.debug:
-			print(f"[*] Inserting {cur.key} into the database ..")
+        cur.path = args.path + cur.key + ".txt"
+        if args.debug:
+            print(f"[*] Inserting {cur.key} into the database ..")
 
-	except Exception as error:
-		print(f"[!] Unable to create paste {cur.key}!")
-	return cur
+    except Exception as error:
+        print(error)
+        print(f"[!] Unable to create paste {cur.key}!")
+    return cur
 
 def insert_into_db(db_cursor, data):
     '''Inserts the metadata of a paste into a database table.'''
@@ -68,14 +69,14 @@ try:
     db_conn.execute(create_db)
 except Exception as e:
     print(e)
-    
+
 # Fetch the raw JSON for the latest pastes
 paste_data = requests.get(scraping_url).json()
 
 for paste in paste_data:
-	cur = paste_creation(paste)
-	print([y for x, y in cur.__dict__.items()])
-	insert_into_db(db_conn, [y for x, y in cur.__dict__.items()])
+    cur = paste_creation(paste)
+    print([y for x, y in cur.__dict__.items()])
+    insert_into_db(db_conn, [y for x, y in cur.__dict__.items()])
 
 db_conn.commit()
 db_conn.close()

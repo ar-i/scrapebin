@@ -7,11 +7,13 @@ import argparse
 import requests
 import os
 
-scraping_url = "https://scrape.pastebin.com/api_scraping.php?limit=5"
+# Temporarily set to 1 for development / debugging purposes
+scraping_url = "https://scrape.pastebin.com/api_scraping.php?limit=1"
 
 argument_parser = argparse.ArgumentParser(description="A simple scraper / parser for pastes from pastebin.com")
 argument_parser.add_argument("path", help="The full path for where the data will be stored", type=str)
 argument_parser.add_argument("--debug", help="Increases output verbosity", action="store_true")
+argument_parser.add_argument("--regex", help="Textfile containing regular expressions to be checked for")
 args = argument_parser.parse_args()
 
 # Check if the provided path exists, try to create if if not - exit if that's
@@ -69,14 +71,24 @@ try:
     db_conn.execute(create_db)
 except Exception as e:
     print(e)
+    
+if args.regex:
+    try:
+        with open(args.regex, 'r') as regex_file:
+            regexes = regex_file.readlines()
+    except Exception as e:
+        print(f"[!] Could not open {args.regex}, exiting ..")
+            
 
 # Fetch the raw JSON for the latest pastes
 paste_data = requests.get(scraping_url).json()
 
 for paste in paste_data:
     cur = paste_creation(paste)
-    print([y for x, y in cur.__dict__.items()])
     insert_into_db(db_conn, [y for x, y in cur.__dict__.items()])
+    if args.regex:
+        cur.regex_comparison(regexes)
+    
 
 db_conn.commit()
 db_conn.close()

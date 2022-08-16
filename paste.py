@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import requests
+import re
+
+# Open issues:
+# * Deciding how command line arguments are passed to objects
 
 class Paste:
 
@@ -35,3 +39,13 @@ class Paste:
         expressions for matches. Unclear if the comparison will be done before
         the local storage / database insertion or by manually checking all
         files.'''
+    
+        # FIXME: This solution isn't ideal, there must be an alternative to a
+        # nested loop here.
+        with open(self.path, 'r') as paste:
+            for expression in regex:
+                for line in paste.readlines():
+                    if re.search(expression.strip(), line):
+                        print(f"[!] Found a match for {expression.strip()} in {self.key}!")
+                        break
+                

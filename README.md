@@ -1,5 +1,9 @@
 # scrapebin
 
+>**IMPORTANT**: This is under active development (aka "I'm tinkering around
+>constantly") and most likely won't work. Do not rely on this. There are plenty
+>of actually good pastebin-scraping tools out there!
+
 This is a simple scraper for [Pastebin](https://pastebin.com), powered by their
 Scraping API. It's designed to provide basic functionality without configuration effort.
 

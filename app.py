@@ -6,15 +6,29 @@ import sqlite3
 import argparse
 import requests
 import os
+import configparser
 
 # Temporarily set to 1 for development / debugging purposes
 scraping_url = "https://scrape.pastebin.com/api_scraping.php?limit=100"
 
 argument_parser = argparse.ArgumentParser(description="A simple scraper / parser for pastes from pastebin.com")
-argument_parser.add_argument("path", help="The full path for where the data will be stored", type=str)
-argument_parser.add_argument("--debug", help="Increases output verbosity", action="store_true")
-argument_parser.add_argument("--regex", help="Textfile containing regular expressions to be checked for")
+argument_parser.add_argument("--config", help="Path to config.ini, default is ./config.ini", default="./config.ini")
 args = argument_parser.parse_args()
+
+def configuration_parsing(filepath):
+    '''Takes a file path, tries to open it and parse the content as .ini-based
+    configuration'''
+    try:
+        with open(filepath, 'r') as configuration_file:
+           file_content = configuration_file.read()
+        try:
+            configuration = configparser.ConfigParser()
+            configuration.read(filepath)
+            return configuration
+        except Exception as e:
+            print(f"[!] Could not parse {filepath}")
+    except (FileNotFoundError, PermissionError):
+        print(f"[!] Couldn't find / open {filepath}")
 
 def smtp_notification(configuration, metadata):
     '''Notifies a pre-defined recipient via mail if a regular expression scores
@@ -55,25 +69,40 @@ def paste_creation(raw_data):
         print(f"[!] Unable to create paste {cur.key}!")
     return cur
 
-# Main execution starts here, open database file, check if table exists & create
-# if it does not
-try:
-    db_conn = sqlite3.connect(args.path + "pastes.db")
-    create_db = "CREATE TABLE IF NOT EXISTS pastes (date text, key text PRIMARY KEY, expire INTEGER, size INTEGER, title TEXT, user TEXT, path TEXT)"
-    db_conn.execute(create_db)
-except Exception as e:
-    print(e)
-    
-# Fetch the raw JSON for the latest pastes
-# FIXME: Error handling, currently dies quietly
-paste_data = requests.get(scraping_url).json()
+def database_cursor(conf):
+	'''Tries to connect to an SQLite-database and create the necessary table,
+	returns a database cursor object'''
+	create_db = "CREATE TABLE IF NOT EXISTS pastes (date text, key text PRIMARY KEY, expire INTEGER, size INTEGER, title TEXT, user TEXT, path TEXT)"
+	try:
+		db_conn = sqlite3.connect(conf["general"]["path"])
+		db_cursor = db_conn.cursor()
+		db_cursor.execute(create_db)
+		return db_cursor
+	except Exception as e:
+	    print(e)
 
-for paste in paste_data:
-    cur = paste_creation(paste)
-    insert_into_db(db_conn, [y for x, y in cur.__dict__.items()])
-    if args.regex:
-        cur.regex_comparison(regexes)
+def scraping(conf, scraping_url):
+	'''Scrapes the latest 100 (or whatever number is defined in scraping_url)
+	pastes from pastebin.com, returns the JSON-object.'''
+	try:
+		paste_data = requests.get(scraping_url).json()
+		return paste_data
+	except Exception as e:
+		if "debug" in conf["general"]:
+			print("[!] Couldn't connect to Pastebin .. is your address whitelisted?\nError:\n\n\n{e}")
+		else:
+			print("[!] Couldn't connect to Pastebin .. is your address whitelisted?")
     
+if __name__ == "__main__":
+	conf = configuration_parsing(args.config)
+	scraping(conf, scraping_url)
 
-db_conn.commit()
-db_conn.close()
+#for paste in paste_data:
+#    cur = paste_creation(paste)
+#    insert_into_db(db_conn, [y for x, y in cur.__dict__.items()])
+#    if args.regex:
+#        cur.regex_comparison(regexes)
+    
+# Ensure that the data actually gets committed ..
+#db_conn.commit()
+#db_conn.close()

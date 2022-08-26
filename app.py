@@ -35,51 +35,58 @@ def smtp_notification(configuration, metadata):
     a hit on a fetched paste'''
     pass
 
-def filesystem_check(path):
+def filesystem_check(conf):
     '''Checks if the provided path exists and is read-/writeable, tries to
     create it if it doesn't exist, exits on failure'''
+    path = conf["general"]["path"]
     if not os.path.isdir(path):
         try:
             os.mkdir(path)
         except:
-            if args.debug:
-                print(f"[!] ERROR: {args.path} does not exist!")
-                print(f"[!] ERROR: Could not create {args.path}!")
+            if conf["general"]["debug"]:
+                print(f"[!] ERROR: {path} does not exist!")
+                print(f"[!] ERROR: Could not create {path}!")
                 print(f"[!] Exiting ..")
-    if not os.access(args.path, os.W_OK):
-        if args.debug:
-            print(f"[!] ERROR: Could not write to {args.path}!")
+    if not os.access(path, os.W_OK):
+        if conf["general"]["debug"]:
+            print(f"[!] ERROR: Could not write to {path}!")
             print(f"[!] Exiting ..")
 
-def paste_creation(raw_data):
-    '''Creates a paste from the raw data provided to the function'''
-    try:
-        cur = Paste(raw_data["date"], raw_data["key"], raw_data["size"], raw_data["expire"], raw_data["title"], raw_data["user"])
-        if args.debug:
-            print(f"[*] Currently working on {cur.key} ..")
-            print(f"[*] Storing the content for {cur.key} in {args.path} ..")
-        cur.store_locally(args.path, cur.fetch_content())
+def paste_creation(raw_data, conf, db_cursor):
+	'''Creates a paste from the raw data provided to the function'''
+	try:
+		cur = Paste(raw_data["date"], raw_data["key"], raw_data["size"], raw_data["expire"], raw_data["title"], raw_data["user"])
+		if conf["general"]["debug"]:
+			print(f"[*] Currently working on {cur.key} ..")
+			print(f"[*] Checking if {cur.key} is a duplicate ..")
+		if cur.check_duplicates(db_cursor):
+			if args.debug:
+				print(f"[*] {key} is a duplicate!")
+			return None
+		if conf["general"]["debug"]:
+			print(f"[*] Storing the content for {cur.key} ..")
+		cur.store_locally(conf["general"]["path"], cur.fetch_content())
+		if conf["general"]["debug"]:
+			print(f"[*] Inserting {cur.key} into the database ..")
+		cur.insert_into_db(db_cursor)
 
-        cur.path = args.path + cur.key + ".txt"
-        if args.debug:
-            print(f"[*] Inserting {cur.key} into the database ..")
+	except Exception as error:
+		if conf["general"]["debug"]:
+			print(f"[!] Unable to create paste {cur.key}!")
 
-    except Exception as error:
-        print(error)
-        print(f"[!] Unable to create paste {cur.key}!")
-    return cur
+	return cur
 
 def database_cursor(conf):
-	'''Tries to connect to an SQLite-database and create the necessary table,
+    '''Tries to connect to an SQLite-database and create the necessary table,
 	returns a database cursor object'''
-	create_db = "CREATE TABLE IF NOT EXISTS pastes (date text, key text PRIMARY KEY, expire INTEGER, size INTEGER, title TEXT, user TEXT, path TEXT)"
-	try:
-		db_conn = sqlite3.connect(conf["general"]["path"])
-		db_cursor = db_conn.cursor()
-		db_cursor.execute(create_db)
-		return db_cursor
-	except Exception as e:
-	    print(e)
+    create_db = "CREATE TABLE IF NOT EXISTS pastes (date text, key text PRIMARY KEY, expire INTEGER, size INTEGER, title TEXT, user TEXT, path TEXT)"
+    try:
+	    db_conn = sqlite3.connect(conf["general"]["path"] + "pastes.db")
+	    db_cursor = db_conn.cursor()
+	    db_cursor.execute(create_db)
+	    return [db_cursor, db_conn]
+    except Exception as e:
+        print(e)
 
 def scraping(conf, scraping_url):
 	'''Scrapes the latest 100 (or whatever number is defined in scraping_url)
@@ -94,15 +101,9 @@ def scraping(conf, scraping_url):
 			print("[!] Couldn't connect to Pastebin .. is your address whitelisted?")
     
 if __name__ == "__main__":
-	conf = configuration_parsing(args.config)
-	scraping(conf, scraping_url)
-
-#for paste in paste_data:
-#    cur = paste_creation(paste)
-#    insert_into_db(db_conn, [y for x, y in cur.__dict__.items()])
-#    if args.regex:
-#        cur.regex_comparison(regexes)
-    
-# Ensure that the data actually gets committed ..
-#db_conn.commit()
-#db_conn.close()
+    conf = configuration_parsing(args.config)
+    filesystem_check(conf)
+    json_pastes = scraping(conf, scraping_url)
+    db_cursor, db_conn = database_cursor(conf)
+    for paste in json_pastes:
+        paste_creation(paste, conf, db_cursor)

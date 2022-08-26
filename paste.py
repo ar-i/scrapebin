@@ -34,6 +34,26 @@ class Paste:
         except Exception as error:
             print(f"[!] An error occured: {error}!")
 
+    def check_duplicates(self, db_cursor):
+        '''Check if a paste / its content has already been fetched to avoid
+        unnecessarily fetching duplicates'''
+        duplicate_query = '''SELECT * FROM PASTES WHERE key == ?'''
+        print(self.key)
+        db_cursor.execute(duplicate_query, (self.key,))
+        print(db_cursor.fetchall())
+        if db_cursor.fetchall():
+            return True
+        else:
+            return False
+
+        pass
+
+    def insert_into_db(self, db_cursor):
+        '''Insert the metadata for the paste into a database'''
+        insert_query = '''INSERT INTO pastes(date, key, size, expire, title,
+        user, path) VALUES (?, ?, ?, ?, ?, ?, ?)'''
+        pass
+
     def regex_comparison(self,regex):
         '''Compares the content of the paste against a list of regular
         expressions for matches. Unclear if the comparison will be done before
